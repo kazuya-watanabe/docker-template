@@ -1,0 +1,119 @@
+version: "3"
+
+services:
+  httpd:
+    container_name: httpd
+    build: ./httpd
+    image: workram/httpd
+    volumes:
+      - type: bind
+        source: ./frontend/dist
+        target: /var/www/html
+      - type: bind
+        source: ./httpd/proxy.conf
+        target: /etc/apache2/mods-enabled/proxy.conf
+    networks:
+      - frontend
+      - backend
+    ports:
+      - "8080:80"
+    depends_on:
+      - nuxtjs
+      - php-fpm
+
+  nuxtjs:
+    container_name: nuxtjs
+    build: ./nuxtjs
+    image: workram/nuxtjs
+    volumes:
+      - type: bind
+        source: ./frontend
+        target: /var/www/html
+    networks:
+      - backend
+
+  php-fpm:
+    container_name: php-fpm
+    build: ./php-fpm
+    image: workram/php-fpm
+    volumes:
+      - type: bind
+        source: ./backend
+        target: /var/www/html
+      - type: bind
+        source: ./php-fpm/xdebug.ini
+        target: /etc/php/7.4/fpm/conf.d/20-xdebug.ini
+      - type: bind
+        source: ./xdebug
+        target: /var/log/xdebug
+    depends_on:
+      - mariadb
+      - redis
+      - postfix
+    networks:
+      - backend
+      - private
+
+  mariadb:
+    container_name: mariadb
+    build: ./mariadb
+    image: workram/mariadb
+    volumes:
+      - database:/var/lib/mysql
+    networks:
+      - private
+
+  redis:
+    container_name: redis
+    build: ./redis
+    image: workram/redis
+    volumes:
+      - redis:/var/lib/redis
+    networks:
+      - private
+
+  postfix:
+    container_name: postfix
+    build: ./postfix
+    image: workram/postfix
+    volumes: 
+      - maildir:/home/mailuser/Maildir
+    networks:
+      - backend
+
+  dovecot:
+    container_name: dovecot
+    build: ./dovecot
+    image: workram/dovecot
+    volumes:
+      - maildir:/home/mailuser/Maildir
+    networks:
+      - backend
+    ports:
+      - "8143:143"
+
+  toolbox:
+    container_name: toolbox
+    build: ./toolbox
+    image: workram/toolbox
+    networks:
+      - backend
+      - private
+    ports:
+      - "8081:80"
+    depends_on:
+      - mariadb
+      - dovecot
+
+volumes:
+  redis:
+    name: redis
+  database:
+    name: database
+  maildir:
+    name: maildir
+
+networks:
+  frontend:
+  backend:
+  private:
